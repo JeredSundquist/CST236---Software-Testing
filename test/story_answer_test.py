@@ -3,6 +3,7 @@ from unittest import TestCase
 from test.plugins.ReqTracer import requirements
 from test.plugins.ReqTracer import story
 from source.story_checker import date_time
+import getpass
 
 
 class TestStoryResult(TestCase):
@@ -57,7 +58,7 @@ class TestStoryResult(TestCase):
     def test_openDoor_story(self):
         obj = Interface()
         result = obj.ask('Open the door hal!')
-        self.assertEqual(result, 'I\'m afraid I can\'t do that Jered')
+        self.assertEqual(result, 'I\'m afraid I can\'t do that ' + getpass.getuser())
 
     @story(
         'When I ask "Convert <number> <units> to <units>." I want to receive the converted value and units so I can '

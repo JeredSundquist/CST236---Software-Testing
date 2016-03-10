@@ -101,7 +101,124 @@ class GetMockTestReq(TestCase):
         self.assertEqual(result, '__file__')
 
     # Coverage_________________________________________________________________________________________________________
-    @requirements(['#0101'])
+    # bad path
+    @requirements(['#0050', '#0051', '#0052'])
     def test_path_checker(self):
         self.assertRaisesRegexp(Exception, 'Path blah does not exist cannot get git file',
                                 source.git_utils.get_git_file_info, 'blah')
+
+    # mock is file in repo = changed or untracked
+    @patch('source.git_utils.is_file_in_repo')
+    @patch('source.git_utils.get_untracked_files')
+    @requirements(['#0100', '#0050', '#0051', '#0052'])
+    def test_fileStatus_NotDirty(self, mock_untracked, mock_is_file_in_repo):
+        obj = Interface()
+        mock_untracked.return_value = os.path.abspath('requirements.txt')
+        mock_is_file_in_repo.return_value = 'No'
+        result = obj.ask('Is the <requirements.txt> in the repo?')
+        self.assertEqual(result, 'No')
+
+    # mock get git file info = is up to date
+    @patch('source.git_utils.get_diff_files')
+    @patch('source.git_utils.get_untracked_files')
+    @patch('source.git_utils.is_repo_dirty')
+    @requirements(['#0101', '#0050', '#0051', '#0052'])
+    def test_get_git_file_info_upToDate(self, mock_is_repo_dirty, mock_get_untracked_files, mock_get_diff_files):
+        obj = Interface()
+        mock_get_diff_files.return_value = []
+        mock_get_untracked_files.return_value = []
+        mock_is_repo_dirty.return_value = False
+        result = obj.ask('What is the status of <requirements.txt>?')
+        self.assertEqual(result, 'requirements.txt is up to date')
+
+    # mock git execute with stderr
+    @patch('subprocess.Popen')
+    @requirements(['#0104', '#0050', '#0051', '#0052'])
+    def test_git_execute_stderr(self, mock_subproc_popen):
+        obj = Interface()
+        process_mock = Mock()
+        attrs = {'communicate.return_value': ('__file__', 'blah')}
+        process_mock.configure_mock(**attrs)
+        mock_subproc_popen.return_value = process_mock
+        result = obj.ask('Where did <{}> come from?'.format(__file__))
+        self.assertEqual(result, '__file__')
+
+    # mock is repo dirty = true
+    @patch('source.git_utils.has_diff_files')
+    @requirements(['#0050', '#0051', '#0052'])
+    def test_is_repo_dirtyTrue(self, mock_has_diff_files):
+        mock_has_diff_files.return_value = __file__
+        result = source.git_utils.is_repo_dirty(__file__)
+        self.assertEqual(result, True)
+
+    # mock is repo dirty = false
+    @patch('source.git_utils.has_diff_files')
+    @requirements(['#0050', '#0051', '#0052'])
+    def test_is_repo_dirtyFalse(self, mock_has_diff_files):
+        mock_has_diff_files.return_value = False
+        result = source.git_utils.is_repo_dirty(__file__)
+        self.assertEqual(result, False)
+
+    # mock has diff files = true
+    @patch('source.git_utils.get_diff_files')
+    @requirements(['#0050', '#0051', '#0052'])
+    def test_has_diff_filesTrue(self, mock_get_diff_files):
+        mock_get_diff_files.return_value = __file__
+        result = source.git_utils.is_repo_dirty(__file__)
+        self.assertEqual(result, True)
+
+    # mock has diff files = false
+    @patch('source.git_utils.get_diff_files')
+    @requirements(['#0050', '#0051', '#0052'])
+    def test_has_diff_filesFalse(self, mock_get_diff_files):
+        mock_get_diff_files.return_value = []
+        result = source.git_utils.is_repo_dirty(__file__)
+        self.assertEqual(result, False)
+
+    # mock has untracked files = true
+    @patch('source.git_utils.get_untracked_files')
+    @requirements(['#0050', '#0051', '#0052'])
+    def test_has_untracked_filesTrue(self, mock_get_untracked_files):
+        mock_get_untracked_files.return_value = __file__
+        result = source.git_utils.has_untracked_files(__file__)
+        self.assertEqual(result, True)
+
+    # mock has untracked files = false
+    @patch('source.git_utils.get_untracked_files')
+    @requirements(['#0050', '#0051', '#0052'])
+    def test_has_untracked_filesFalse(self, mock_get_untracked_files):
+        mock_get_untracked_files.return_value = []
+        result = source.git_utils.has_untracked_files(__file__)
+        self.assertEqual(result, False)
+
+    # mock get repo root path for get diff files
+    @patch('source.git_utils.git_execute')
+    @patch('os.path.exists')
+    @requirements(['#0050', '#0051', '#0052'])
+    def test_get_repo_root_path_get_diff_files(self, mock_os_path, mock_git_execute):
+        mock_os_path.return_value = True
+        mock_git_execute.return_value = os.path.abspath(__file__)
+        result = source.git_utils.is_file_in_repo(__file__)
+        self.assertEqual(result, 'No')
+
+    # mock get repo root path for get untracked files
+    @patch('subprocess.Popen')
+    @requirements(['#0050', '#0051', '#0052'])
+    def test_get_repo_root_path_get_untracked_files(self, mock_subproc_popen):
+        process_mock = Mock()
+        attrs = {'communicate.side_effect': [('', 'empty'), ('', 'empty'), ('git_utils_test.py', 'onlyFile'),
+                                             (__file__, '4'), ('something', '5'), ('maybe', '6')]}
+        process_mock.configure_mock(**attrs)
+        mock_subproc_popen.return_value = process_mock
+        result = source.git_utils.is_file_in_repo(os.path.relpath(__file__))
+        self.assertEqual(result, 'Yes')
+
+    # mock get repo root path
+    @patch('source.git_utils.git_execute')
+    @patch('os.path.exists')
+    @requirements(['#0050', '#0051', '#0052'])
+    def test_get_repo_root_path(self, mock_os_path, mock_git_execute):
+        mock_os_path.return_value = True
+        mock_git_execute.return_value = os.path.abspath(__file__)
+        result = source.git_utils.get_repo_root(__file__)
+        self.assertEqual(result, __file__)
